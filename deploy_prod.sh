@@ -4,7 +4,7 @@
 # Change to the project root directory
 cd "$(dirname "$0")"
 
-echo "🚀 Deploying Parent CEO API to Firebase Production Environment..."
+echo "🚀 Deploying API to Firebase Production Environment..."
 
 # Set environment to production
 export APP_ENV=production
