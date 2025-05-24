@@ -76,6 +76,7 @@ if [ -f "firestore.rules" ] && [ -f "firestore.indexes.json" ]; then
     fi
 fi
 
+
 # Deploy Storage rules
 if [ -f "storage.rules" ]; then
     echo "Deploying Storage rules..."
