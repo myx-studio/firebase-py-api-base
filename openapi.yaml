@@ -1,0 +1,932 @@
+openapi: 3.0.3
+info:
+  title: Firebase Python API
+  description: |
+    Firebase Cloud Functions API template for Python applications.
+
+    ## Important Usage Notes
+
+    - All POST, PUT, and PATCH requests must include the header `Content-Type: application/json`
+    - Authentication is required for most endpoints using Bearer token in the Authorization header
+    - All responses follow a standardized format with `success`, `data`, `message`, and `error` fields
+
+    ## Common Errors
+
+    - `415 Unsupported Media Type`: Ensure your requests include the header `Content-Type: application/json`
+    - `401 Unauthorized`: Make sure you're including a valid Bearer token in the Authorization header
+    - `400 Bad Request`: Check your request data for validation errors
+    - `404 Not Found`: The requested resource does not exist
+
+    ## File Upload Support
+
+    - Profile pictures can be uploaded as base64 encoded data or URLs
+    - Base64 data is automatically detected and uploaded to Firebase Storage
+    - Supported formats: JPEG, PNG, GIF, WEBP
+    - Maximum file size: 5MB for images
+  version: 1.0.0
+  contact:
+    name: Firebase Python API Support
+    email: support@yourproject.com
+
+servers:
+  - url: /v1
+    description: API version 1
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase JWT token
+
+  schemas:
+    # Standard response format
+    Response:
+      type: object
+      properties:
+        data:
+          type: object
+          description: Response data payload
+        message:
+          type: string
+          description: Human-readable message about the response
+        success:
+          type: boolean
+          description: Whether the request was successful
+        error:
+          type: string
+          description: Error message if success is false
+
+    # User schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: User's Firebase UID (same as document ID)
+        email:
+          type: string
+          format: email
+          description: User's email address
+        first_name:
+          type: string
+          description: User's first name
+        last_name:
+          type: string
+          description: User's last name
+        role:
+          type: string
+          description: User's role (user, admin, etc.)
+          default: user
+        created_at:
+          type: string
+          format: date-time
+          description: When the user was created
+        updated_at:
+          type: string
+          format: date-time
+          description: When the user was last updated
+        profile_picture:
+          type: string
+          description: URL to the user's profile picture
+        phone_number:
+          type: string
+          description: User's phone number
+        firebase_uid:
+          type: string
+          description: User's Firebase UID
+        onboarding_completed:
+          type: boolean
+          description: Whether the user has completed onboarding
+
+    UserRegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - first_name
+        - last_name
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role:
+          type: string
+          default: user
+        profile_picture:
+          type: string
+          description: URL or base64 encoded image data
+        phone_number:
+          type: string
+
+    UserLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    CustomTokenLoginRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        profile_picture:
+          type: string
+          description: URL or base64 encoded image data
+        phone_number:
+          type: string
+
+    OnboardingUpdateRequest:
+      type: object
+      properties:
+        onboarding_completed:
+          type: boolean
+
+    # Notification schemas
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the notification
+        user_id:
+          type: string
+          description: ID of the user the notification is for
+        message:
+          type: string
+          description: Notification message
+        title:
+          type: string
+          description: Notification title
+        type:
+          type: string
+          description: Type of notification
+        is_read:
+          type: boolean
+          description: Whether the notification has been read
+        created_at:
+          type: string
+          format: date-time
+          description: When the notification was created
+        data:
+          type: object
+          description: Additional data for the notification
+
+    DeviceRegistrationRequest:
+      type: object
+      required:
+        - token
+        - platform
+      properties:
+        token:
+          type: string
+          description: Device token for push notifications
+        platform:
+          type: string
+          enum: [ios, android, web]
+          description: Platform of the device
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API is up and running
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+
+  #
+  # Authentication endpoints
+  #
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login with email and password
+      description: |
+        Authenticate a user with email and password.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          token:
+                            type: string
+                          user:
+                            $ref: '#/components/schemas/User'
+        '401':
+          description: Authentication failed
+        '415':
+          description: Unsupported Media Type
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: |
+        Create a new user account. Profile pictures can be provided as URLs or base64 encoded data.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          token:
+                            type: string
+                          user:
+                            $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user data
+        '415':
+          description: Unsupported Media Type
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user profile
+      description: Get the profile of the currently authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+        '401':
+          description: Authentication required
+
+  /auth/token:
+    post:
+      tags:
+        - Authentication
+      summary: Login with custom token
+      description: |
+        Authenticate a user with a custom token.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomTokenLoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid token
+        '415':
+          description: Unsupported Media Type
+
+  #
+  # User endpoints
+  #
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Get all users
+      description: Get a list of all users
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          users:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/User'
+        '401':
+          description: Authentication required
+
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: |
+        Create a new user account (admin only). Profile pictures can be provided as URLs or base64 encoded data.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user data
+        '401':
+          description: Authentication required
+        '415':
+          description: Unsupported Media Type
+
+  /users/{user_id}:
+    get:
+      tags:
+        - Users
+      summary: Get a specific user
+      description: Get a specific user by Firebase UID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Firebase UID of the user
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+
+    put:
+      tags:
+        - Users
+      summary: Update a user
+      description: |
+        Update a user's information. Profile pictures can be provided as URLs or base64 encoded data.
+        When base64 data is provided, it will be automatically uploaded to Firebase Storage.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Firebase UID of the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '415':
+          description: Unsupported Media Type
+
+    delete:
+      tags:
+        - Users
+      summary: Delete a user
+      description: Delete a user account
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Firebase UID of the user
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '404':
+          description: User not found
+
+  /users/photo:
+    post:
+      tags:
+        - Users
+      summary: Update user profile photo
+      description: |
+        Updates the authenticated user's profile photo. Supports both URLs and base64 encoded image data.
+        
+        **Important:** The request must include the header `Content-Type: application/json`
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - photo
+              properties:
+                photo:
+                  type: string
+                  description: URL or base64 encoded image data
+      responses:
+        '200':
+          description: Profile photo updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+                          photo_url:
+                            type: string
+                            description: URL of the uploaded photo
+        '400':
+          description: Invalid image data
+        '401':
+          description: Authentication required
+        '415':
+          description: Unsupported Media Type
+
+  /users/{user_id}/onboarding:
+    post:
+      tags:
+        - Users
+      summary: Update user onboarding status
+      description: |
+        Update a user's onboarding status.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Firebase UID of the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingUpdateRequest'
+      responses:
+        '200':
+          description: Onboarding status updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '415':
+          description: Unsupported Media Type
+
+  #
+  # Notification endpoints
+  #
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get notifications
+      description: Get notifications for the current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          notifications:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Notification'
+        '401':
+          description: Authentication required
+
+  /notifications/unread:
+    get:
+      tags:
+        - Notifications
+      summary: Get unread notification count
+      description: Get the count of unread notifications for the current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Unread count retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          unread_count:
+                            type: integer
+        '401':
+          description: Authentication required
+
+  /notifications/{notification_id}/read:
+    post:
+      tags:
+        - Notifications
+      summary: Mark notification as read
+      description: |
+        Mark a notification as read.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '404':
+          description: Notification not found
+        '415':
+          description: Unsupported Media Type
+
+  /notifications/read-all:
+    post:
+      tags:
+        - Notifications
+      summary: Mark all notifications as read
+      description: |
+        Mark all notifications as read for the current user.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '401':
+          description: Authentication required
+        '415':
+          description: Unsupported Media Type
+
+  /notifications/{notification_id}:
+    delete:
+      tags:
+        - Notifications
+      summary: Delete a notification
+      description: Delete a notification
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '404':
+          description: Notification not found
+
+  /devices:
+    post:
+      tags:
+        - Devices
+      summary: Register a device
+      description: |
+        Register a device for push notifications.
+
+        **Important:** The request must include the header `Content-Type: application/json`
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegistrationRequest'
+      responses:
+        '200':
+          description: Device registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '400':
+          description: Invalid device data
+        '415':
+          description: Unsupported Media Type
+
+  /devices/{device_id}:
+    delete:
+      tags:
+        - Devices
+      summary: Unregister a device
+      description: Unregister a device for push notifications
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device unregistered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '404':
+          description: Device not found
+
+  #
+  # Password Management endpoints
+  #
+  /password/reset-request:
+    post:
+      tags:
+        - Password Management
+      summary: Request password reset
+      description: |
+        Sends a password reset email with a token to the user's email address.
+        
+        **Important:** The request must include the header `Content-Type: application/json`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                app_url:
+                  type: string
+                  description: Base URL of the application (optional)
+      responses:
+        '200':
+          description: Password reset email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '400':
+          description: Invalid input
+        '415':
+          description: Unsupported Media Type
+
+  /password/reset:
+    post:
+      tags:
+        - Password Management
+      summary: Reset password using token
+      description: |
+        Resets a user's password using the token sent to their email.
+        
+        **Important:** The request must include the header `Content-Type: application/json`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - new_password
+              properties:
+                token:
+                  type: string
+                  description: Password reset token from email
+                new_password:
+                  type: string
+                  format: password
+                  description: New password to set
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '400':
+          description: Invalid token or password
+        '415':
+          description: Unsupported Media Type
+
+  /password/change:
+    post:
+      tags:
+        - Password Management
+      summary: Change password
+      description: |
+        Changes a logged-in user's password.
+        
+        **Important:** The request must include the header `Content-Type: application/json`
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - current_password
+                - new_password
+              properties:
+                current_password:
+                  type: string
+                  format: password
+                  description: Current password for verification
+                new_password:
+                  type: string
+                  format: password
+                  description: New password to set
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '400':
+          description: Invalid password
+        '401':
+          description: Authentication required
+        '415':
+          description: Unsupported Media Type
