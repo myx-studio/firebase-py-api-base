@@ -27,7 +27,7 @@ firebase deploy --only functions
 # Verify deployment
 if [ $? -eq 0 ]; then
     echo "✅ Deployment to production completed successfully!"
-    echo "🌐 Your API is now live at: https://us-central1-parent-ceo.cloudfunctions.net"
+    echo "🌐 Your API is now live
 else
     echo "❌ Deployment failed. Check the error messages above."
     exit 1
