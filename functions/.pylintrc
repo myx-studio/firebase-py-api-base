@@ -1,0 +1,29 @@
+[MASTER]
+# Use the Python interpreter from the virtual environment
+init-hook='import sys; sys.path.insert(0, ".")'
+jobs=1
+
+[MESSAGES CONTROL]
+# Disable specific warnings
+disable=
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    fixme,
+    trailing-whitespace,
+    astroid-error,
+    import-error
+
+[FORMAT]
+# Maximum line length
+max-line-length=100
+
+[BASIC]
+# Good variable names
+good-names=i,j,k,e,_,id,db
+
+[DESIGN]
+# Maximum number of arguments for functions
+max-args=10
