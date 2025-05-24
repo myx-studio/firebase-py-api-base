@@ -1,0 +1,28 @@
+{
+    "python.defaultInterpreterPath": "./functions/venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.extraPaths": [
+        "./functions"
+    ],
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.pylintPath": "./functions/venv/bin/pylint",
+    "python.linting.pylintArgs": [
+        "--rcfile=./functions/.pylintrc"
+    ],
+    "python.linting.cwd": "./functions",
+    "python.formatting.provider": "black",
+    "python.formatting.blackPath": "./functions/venv/bin/black",
+    "editor.formatOnSave": true,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "basic",
+    "pylint.args": [
+        "--rcfile=./functions/.pylintrc"
+    ],
+    "pylint.cwd": "./functions",
+    "pylint.path": [
+        "./functions/venv/bin/pylint"
+    ]
+}
