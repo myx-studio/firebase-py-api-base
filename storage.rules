@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Profile photos - users can read all profile photos but only write their own
+    match /profile_photos/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                    request.auth.uid == userId &&
+                    // 5MB maximum file size for profile photos
+                    request.resource.size < 5 * 1024 * 1024 &&
+                    // Only allow image files
+                    request.resource.contentType.matches('image/.*');
+    }
+    
+    // Generic uploads folder - users can only access their own files
+    match /uploads/{userId}/{fileName} {
+      allow read, write: if request.auth != null && 
+                          request.auth.uid == userId &&
+                          // 10MB maximum file size
+                          request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
